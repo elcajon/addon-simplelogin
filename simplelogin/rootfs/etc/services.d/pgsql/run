@@ -1,0 +1,12 @@
+#!/usr/bin/with-contenv bashio
+
+bashio::log.info "Start Postgres Server."
+if [ ! -d /data/pgsql ] ; then
+    mkdir /data/pgsql
+    chown -R postgres:postgres /data/pgsql
+    sudo -u postgres /usr/lib/postgresql/11/bin/initdb -D /data/pgsql/data &> /dev/null
+fi
+
+chown -R postgres:postgres /data/pgsql
+
+s6-setuidgid postgres /usr/lib/postgresql/11/bin/postgres -D /data/pgsql/data -d 0

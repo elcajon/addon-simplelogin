@@ -1,0 +1,24 @@
+#!/usr/bin/with-contenv bashio
+#s6-setuidgid root /usr/local/bin/gitea web -c /data/app.ini
+bashio::net.wait_for 5432 localhost 300
+bashio::net.wait_for 25 localhost 300
+
+# change directory
+cd /code
+
+if [ ! -f /data/pgsql/installed ] ; then
+    bashio::log.info "Initial Server-Setup."
+    sudo -u postgres psql -c "create user simplelogin with password 'simplelogin';" &> /dev/null
+    sudo -u postgres psql -c "create database simplelogin;" &> /dev/null
+    sudo -u postgres psql -c "grant all privileges on database simplelogin to simplelogin;" &> /dev/null
+
+    flask db upgrade &> /dev/null
+    python init_app.py &> /dev/null
+
+    touch /data/pgsql/installed
+fi
+
+# change all user app permissions
+sudo -u postgres psql -d simplelogin -c "update users set lifetime = true;" &> /dev/null
+bashio::log.info "Start Server."
+/usr/local/bin/python3 server.py

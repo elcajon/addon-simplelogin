@@ -1,0 +1,90 @@
+#!/usr/bin/with-contenv bashio
+if [ ! -d /ssl/simple-login ] ; then
+    mkdir -p /ssl/simple-login
+fi
+if [ ! -f /ssl/simple-login/dkim.key ] ; then
+    cd /ssl/simple-login
+    openssl genrsa -out dkim.key 1024
+fi
+if [ ! -f /ssl/simple-login/dkim.pub.key ] ; then
+    cd /ssl/simple-login
+    openssl rsa -in dkim.key -pubout -out dkim.pub.key
+fi
+
+if [ ! -d /data/pgp ] ; then
+mkdir -p /data/pgp
+fi
+
+if [ ! -d /data/upload ] ; then
+cp -R /code/static/upload /data/
+fi
+
+rm -R /code/static/upload
+ln -s /data/upload /code/static/upload
+
+
+bashio::log.info "Update Simple-Login-Server Config."
+cat <<'EOF' > /code/.env
+# WebApp URL
+URL=web-url
+
+# Allow SimpleLogin to enforce SPF by using the extra headers from postfix
+ENFORCE_SPF=true
+
+# domain used to create alias
+EMAIL_DOMAIN=mydomain.com
+ALIAS_DOMAINS=["mydomain.com"]
+
+# transactional email is sent from this email address
+SUPPORT_EMAIL=support@app.mydomain.com
+SUPPORT_NAME=Son from SimpleLogin
+MAX_NB_EMAIL_FREE_PLAN=5
+
+# all emails sent to sender are stored in this folder
+SENDER_DIR=/tmp
+
+# custom domain needs to point to these MX servers
+EMAIL_SERVERS_WITH_PRIORITY=[(10, "app.mydomain.com.")]
+
+# By default, new aliases must end with ".{random_word}". This is to avoid a person taking all "nice" aliases.
+# this option doesn't make sense in self-hosted. Set this variable to disable this option.
+DISABLE_ALIAS_SUFFIX=1
+
+# If you want to use another MTA to send email, you could set the address of your MTA here
+# By default, emails are sent using the the same Postfix server that receives emails
+POSTFIX_SERVER=127.0.0.1
+
+# the DKIM private key used to compute DKIM-Signature
+DKIM_PRIVATE_KEY_PATH=/ssl/simple-login/dkim.key
+
+# the DKIM public key used to setup custom domain DKIM
+DKIM_PUBLIC_KEY_PATH=/ssl/simple-login/dkim.pub.key
+
+# DB Connection
+DB_URI=postgresql://simplelogin:simplelogin@localhost:5432/simplelogin
+
+FLASK_SECRET=put_something_secret_here
+
+GNUPGHOME=/data/pgp
+
+LOCAL_FILE_UPLOAD=1
+
+EOF
+
+MAILSERVER="$(bashio::config 'MAILSERVER')"
+WEBSERVER="$(bashio::config 'WEBSERVER')"
+URL="$(bashio::config 'URL')"
+sed -i -- "s+app.mydomain.com+$WEBSERVER+g" /code/.env
+sed -i -- "s+mydomain.com+$MAILSERVER+g" /code/.env
+sed -i -- "s+web-url+$URL+g" /code/.env
+if [ ! -f /data/secret ] ; then
+    pwgen 64 1 > /data/secret
+fi
+
+FLASK_SECRET=$(cat /data/secret)
+sed -i -- "s+put_something_secret_here+$FLASK_SECRET+g" /code/.env
+
+if bashio::config.true 'DISABLE_REGISTRATION' ; then
+    echo 'DISABLE_REGISTRATION=1' >> /code/.env
+fi
+

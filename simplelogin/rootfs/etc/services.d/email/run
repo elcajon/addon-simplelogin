@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+#s6-setuidgid root /usr/local/bin/gitea web -c /data/app.ini
+bashio::net.wait_for 5432 localhost 300
+bashio::net.wait_for 25 localhost 300
+bashio::log.info "Start Mail Handler."
+cd /code
+/usr/local/bin/python3 email_handler.py

@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv bashio
+bashio::net.wait_for 5432 localhost 300
+bashio::log.info "Start Postfix."
+/etc/init.d/postfix start
