@@ -6,7 +6,7 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/ubuntu-base/amd64:6.1.2
 FROM ${BUILD_FROM} as root
 
 
-FROM  simplelogin/app:3.3.0 as sl
+FROM  simplelogin/app:3.2.2 as sl
 
 # Environment variables
 ENV \
